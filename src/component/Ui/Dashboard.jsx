@@ -1,22 +1,32 @@
-import { useEffect, useState } from 'react';
-import { Box, Drawer, List, ListItem, ListItemText, Typography, Divider } from '@mui/material';
-import { DragDropContext } from 'react-beautiful-dnd';
-import Column from './Column';
-import { TicketForm } from '../../pages/TickectForm';
+import { useEffect, useState } from "react";
+import {
+  Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  Typography,
+  Divider,
+} from "@mui/material";
+import { DragDropContext } from "react-beautiful-dnd";
+import Column from "./Column";
+import { TicketForm } from "../../pages/TickectForm";
+import { useNavigate } from "react-router-dom";
+import { CustomButton } from "./CustomButton";
 
 const statusList = ["Assigned", "In Process", "Resolved", "Deployed", "Closed"];
 const drawerWidth = 280;
 
-export const Dashboard = () => {
+export const Dashboard = ({ setIsAuthenticated}) => {
   const [tickets, setTickets] = useState([]);
-
+    const navigate = useNavigate()
   useEffect(() => {
-    const stored = localStorage.getItem('tickets');
+    const stored = localStorage.getItem("tickets");
     if (stored) setTickets(JSON.parse(stored));
   }, []);
 
   const saveTickets = (newTickets) => {
-    localStorage.setItem('tickets', JSON.stringify(newTickets));
+    localStorage.setItem("tickets", JSON.stringify(newTickets));
     setTickets(newTickets);
   };
 
@@ -24,27 +34,44 @@ export const Dashboard = () => {
     const newTickets = [...tickets, ticket];
     saveTickets(newTickets);
   };
+ const handleLogout = ()=>{
+    localStorage.removeItem("isAuthenticated")
+    setIsAuthenticated(false)
+    navigate('/login')
+    
+ }
+ const onDragEnd = (result) => {
+  const { destination, draggableId } = result;
+  if (!destination) return;
 
-  const onDragEnd = (result) => {
-    const { destination, draggableId } = result;
-    if (!destination) return;
-    if (destination.droppableId === "Closed") return;
+  // Reverse map droppableId back to actual status
+  const unsanitizedStatus = statusList.find(
+    (s) => s.replace(/\s+/g, '-') === destination.droppableId
+  );
 
-    const updatedTickets = [...tickets];
-    const ticketIndex = updatedTickets.findIndex(t => t.id === draggableId);
-    updatedTickets[ticketIndex].status = destination.droppableId;
-    saveTickets(updatedTickets);
-  };
+  if (!unsanitizedStatus || unsanitizedStatus === "Closed") return;
+
+  const updatedTickets = [...tickets];
+  const ticketIndex = updatedTickets.findIndex(t => t.id === draggableId);
+  if (ticketIndex === -1) return;
+
+  updatedTickets[ticketIndex].status = unsanitizedStatus;
+  saveTickets(updatedTickets);
+};
+
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: "flex" }}>
       {/* Sidebar */}
       <Drawer
         variant="permanent"
         sx={{
           width: drawerWidth,
           flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+          [`& .MuiDrawer-paper`]: {
+            width: drawerWidth,
+            boxSizing: "border-box",
+          },
         }}
       >
         <Box sx={{ p: 2 }}>
@@ -66,17 +93,28 @@ export const Dashboard = () => {
 
       {/* Main content */}
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-        <Typography variant="h4" gutterBottom>Ticket Dashboard</Typography>
+        <Typography variant="h4" gutterBottom>
+          Ticket Dashboard
+        </Typography>
+        <CustomButton variant="contained" onClick={handleLogout}>Logout</CustomButton>
         <TicketForm onCreate={handleAddTicket} />
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: "flex", gap: 2 }}>
           <DragDropContext onDragEnd={onDragEnd}>
-            {statusList.map((status) => (
-              <Column
-                key={status}
-                title={status}
-                tickets={tickets.filter(ticket => ticket.status === status)}
-              />
-            ))}
+            {statusList.map((status) => {
+              const ticketsForStatus = tickets.filter(
+                (ticket) => ticket.status === status
+              );
+              const droppableId = status.replace(/\s+/g, "-"); // replace spaces with dashes
+
+              return (
+                <Column
+                  key={status}
+                  title={status}
+                  droppableId={droppableId} // 👈 pass sanitized ID
+                  tickets={ticketsForStatus}
+                />
+              );
+            })}
           </DragDropContext>
         </Box>
       </Box>
