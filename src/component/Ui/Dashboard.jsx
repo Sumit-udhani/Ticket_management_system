@@ -1,25 +1,28 @@
-import { useEffect, useState } from "react";
 import {
   Box,
-  Drawer,
+  Typography,
   List,
   ListItem,
   ListItemText,
-  Typography,
-  Divider,
+  Paper,
 } from "@mui/material";
-import { DragDropContext } from "react-beautiful-dnd";
+import { DndProvider, useDrag } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Column from "./Column";
 import { TicketForm } from "../../pages/TickectForm";
-import { useNavigate } from "react-router-dom";
 import { CustomButton } from "./CustomButton";
 
-const statusList = ["Assigned", "In Process", "Resolved", "Deployed", "Closed"];
-const drawerWidth = 280;
+const STATUS_LIST = ["Assigned", "In Process", "Resolved", "Deployed", "Closed"];
 
-export const Dashboard = ({ setIsAuthenticated}) => {
+// DraggableTicketCard omitted for brevity — keep your original code
+
+export const Dashboard = ({ setIsAuthenticated }) => {
   const [tickets, setTickets] = useState([]);
-    const navigate = useNavigate()
+  const [openForm, setOpenForm] = useState(false); // <-- Modal open state
+  const navigate = useNavigate();
+
   useEffect(() => {
     const stored = localStorage.getItem("tickets");
     if (stored) setTickets(JSON.parse(stored));
@@ -31,94 +34,71 @@ export const Dashboard = ({ setIsAuthenticated}) => {
   };
 
   const handleAddTicket = (ticket) => {
-    const newTickets = [...tickets, ticket];
-    saveTickets(newTickets);
+    saveTickets([...tickets, ticket]);
   };
- const handleLogout = ()=>{
-    localStorage.removeItem("isAuthenticated")
-    setIsAuthenticated(false)
-    navigate('/login')
-    
- }
- const onDragEnd = (result) => {
-  const { destination, draggableId } = result;
-  if (!destination) return;
 
-  // Reverse map droppableId back to actual status
-  const unsanitizedStatus = statusList.find(
-    (s) => s.replace(/\s+/g, '-') === destination.droppableId
-  );
+  const handleLogout = () => {
+    localStorage.removeItem("isAuthenticated");
+    setIsAuthenticated(false);
+    navigate("/login");
+  };
 
-  if (!unsanitizedStatus || unsanitizedStatus === "Closed") return;
-
-  const updatedTickets = [...tickets];
-  const ticketIndex = updatedTickets.findIndex(t => t.id === draggableId);
-  if (ticketIndex === -1) return;
-
-  updatedTickets[ticketIndex].status = unsanitizedStatus;
-  saveTickets(updatedTickets);
-};
-
+  const moveTicket = (id, newStatus) => {
+    if (newStatus === "Closed") return;
+    const updated = tickets.map((t) =>
+      t.id === id ? { ...t, status: newStatus } : t
+    );
+    saveTickets(updated);
+  };
 
   return (
-    <Box sx={{ display: "flex" }}>
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
-            width: drawerWidth,
-            boxSizing: "border-box",
-          },
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography variant="h6">All Tickets</Typography>
+    <DndProvider backend={HTML5Backend}>
+      <Box sx={{ p: 3 }}>
+        {/* Header Section */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 3,
+            flexWrap: "wrap",
+            gap: 2,
+          }}
+        >
+          <Typography variant="h4" component="h1" sx={{ flexGrow: 1 }}>
+            Ticket Dashboard
+          </Typography>
+
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <CustomButton variant="contained"  onClick={() => setOpenForm(true)}>
+              Create Ticket
+            </CustomButton>
+
+            <CustomButton variant="outlined"  sx={{ backgroundColor:'red', color:'white'}}  onClick={handleLogout}>
+              Logout
+            </CustomButton>
+          </Box>
         </Box>
-        <Divider />
-        <List>
-          {tickets.map((ticket) => (
-            <ListItem key={ticket.id} disablePadding>
-              <ListItemText
-                primary={ticket.ticketTitle}
-                secondary={`Status: ${ticket.status}`}
-                sx={{ px: 2 }}
-              />
-            </ListItem>
+
+        {/* Modal form */}
+        <TicketForm
+          open={openForm}
+          onClose={() => setOpenForm(false)}
+          onCreate={handleAddTicket}
+        />
+
+        <Box sx={{ display: "flex", gap: 2, mt: 3, flexWrap: "wrap" }}>
+          {STATUS_LIST.map((status) => (
+            <Column
+              key={status}
+              status={status}
+              tickets={tickets.filter((t) => t.status === status)}
+              onDrop={moveTicket}
+            />
           ))}
-        </List>
-      </Drawer>
-
-      {/* Main content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Ticket Dashboard
-        </Typography>
-        <CustomButton variant="contained" onClick={handleLogout}>Logout</CustomButton>
-        <TicketForm onCreate={handleAddTicket} />
-        <Box sx={{ display: "flex", gap: 2 }}>
-          <DragDropContext onDragEnd={onDragEnd}>
-            {statusList.map((status) => {
-              const ticketsForStatus = tickets.filter(
-                (ticket) => ticket.status === status
-              );
-              const droppableId = status.replace(/\s+/g, "-"); // replace spaces with dashes
-
-              return (
-                <Column
-                  key={status}
-                  title={status}
-                  droppableId={droppableId} // 👈 pass sanitized ID
-                  tickets={ticketsForStatus}
-                />
-              );
-            })}
-          </DragDropContext>
         </Box>
       </Box>
-    </Box>
+    </DndProvider>
   );
 };
 

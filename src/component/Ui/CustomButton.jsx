@@ -7,6 +7,7 @@ import { Button } from "@mui/material";
   type = "button",
   fullWidth = false,
   disabled = false,
+  sx = false,
   ...rest
 }) => {
   return (
@@ -17,6 +18,7 @@ import { Button } from "@mui/material";
       type={type}
       fullWidth={fullWidth}
       disabled={disabled}
+      sx={sx}
       {...rest}
     >
       {children}
